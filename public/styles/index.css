@@ -1,0 +1,35 @@
+/* KeyezApp Web Styles Entry Point */
+
+/* Bootstrap CSS */
+@import 'bootstrap/dist/css/bootstrap.min.css';
+
+/* Core KeyezApp Styles */
+@import url('./global.css');
+@import url('./components.css');
+@import url('./mobile.css');
+
+/* Remove Bootstrap container padding that interferes with KeyezApp layout */
+.container-fluid {
+  padding: 0 !important;
+}
+
+/* Hide Bootstrap components we don't need */
+.navbar,
+.nav-tabs,
+.card {
+  display: none !important;
+}
+
+/* Ensure full height */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Remove any default margins/padding */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
