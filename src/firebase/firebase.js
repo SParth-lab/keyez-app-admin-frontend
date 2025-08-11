@@ -79,5 +79,50 @@ export const getChatPath = (userId1, userId2) => {
   return [userId1, userId2].sort().join('_');
 };
 
+// Real-time group messaging hook
+export const useRealTimeGroupMessages = (groupId) => {
+  if (!database || !groupId) {
+    return { messages: [], loading: false, error: 'Firebase not configured or missing group ID' };
+  }
+
+  const [messages, setMessages] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(null);
+
+  React.useEffect(() => {
+    try {
+      const groupPath = `group_chats/${groupId}`;
+      const messagesRef = ref(database, groupPath);
+      const unsubscribe = onValue(
+        messagesRef,
+        (snapshot) => {
+          const data = snapshot.val();
+          if (data) {
+            const messageArray = Object.values(data).sort((a, b) => a.timestamp - b.timestamp);
+            setMessages(messageArray);
+          } else {
+            setMessages([]);
+          }
+          setLoading(false);
+          setError(null);
+        },
+        (error) => {
+          console.error('Firebase group listener error:', error);
+          setError(error.message);
+          setLoading(false);
+        }
+      );
+
+      return () => off(messagesRef);
+    } catch (err) {
+      console.error('Firebase group setup error:', err);
+      setError(err.message);
+      setLoading(false);
+    }
+  }, [groupId]);
+
+  return { messages, loading, error };
+};
+
 export { database };
 export default database;

@@ -101,10 +101,20 @@ export const chatAPI = {
     const response = await api.post('/chat/send', { to, text });
     return response.data;
   },
+  // Send message to a group (admin only)
+  sendGroupMessage: async (groupId, text) => {
+    const response = await api.post(`/chat/groups/${groupId}/send`, { text });
+    return response.data;
+  },
   
   // Get conversation with a specific user
   getConversation: async (userId) => {
     const response = await api.get(`/chat/messages/${userId}`);
+    return response.data;
+  },
+  // Get group messages (admin only)
+  getGroupMessages: async (groupId) => {
+    const response = await api.get(`/chat/groups/${groupId}/messages`);
     return response.data;
   },
   
@@ -125,6 +135,41 @@ export const chatAPI = {
     const response = await api.get('/chat/received');
     return response.data;
   }
+};
+
+// Groups API methods (admin only)
+export const groupsAPI = {
+  // List groups
+  getAll: async (page = 1, limit = 10, search = '') => {
+    const params = new URLSearchParams({ page, limit });
+    if (search) params.append('search', search);
+    const response = await api.get(`/groups?${params}`);
+    return response.data;
+  },
+
+  // Create group
+  create: async (name, memberIds) => {
+    const response = await api.post('/groups', { name, members: memberIds });
+    return response.data;
+  },
+
+  // Update group
+  update: async (groupId, payload) => {
+    const response = await api.put(`/groups/${groupId}`, payload);
+    return response.data;
+  },
+
+  // Delete group
+  remove: async (groupId) => {
+    const response = await api.delete(`/groups/${groupId}`);
+    return response.data;
+  },
+
+  // Get one group
+  getById: async (groupId) => {
+    const response = await api.get(`/groups/${groupId}`);
+    return response.data;
+  },
 };
 
 export default api;

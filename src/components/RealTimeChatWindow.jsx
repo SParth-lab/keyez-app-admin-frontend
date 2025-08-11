@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useRealTimeMessages } from '../firebase/firebase';
+import { useRealTimeMessages, useRealTimeGroupMessages } from '../firebase/firebase';
 
-const RealTimeChatWindow = ({ currentUserId, selectedUserId, fallbackMessages = [] }) => {
+const RealTimeChatWindow = ({ currentUserId, selectedUserId, selectedGroupId, fallbackMessages = [] }) => {
   const [error, setError] = useState(null);
   const messagesEndRef = useRef(null);
   
   // Try to use real-time messages, fall back to provided messages
-  const { messages: realTimeMessages, loading } = useRealTimeMessages(currentUserId, selectedUserId) || {};
+  const { messages: realTimeMessages, loading } = selectedGroupId
+    ? (useRealTimeGroupMessages(selectedGroupId) || {})
+    : (useRealTimeMessages(currentUserId, selectedUserId) || {});
   
   // Use real-time messages if available, otherwise use fallback
   const messages = realTimeMessages && realTimeMessages.length > 0 ? realTimeMessages : fallbackMessages;
