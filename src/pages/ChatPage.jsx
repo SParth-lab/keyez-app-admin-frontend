@@ -1,20 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser, logoutUser } from '../utils/auth';
-import { usersAPI, chatAPI } from '../api/api';
+import { usersAPI, chatAPI, groupsAPI } from '../api/api';
 import RealTimeChatWindow from '../components/RealTimeChatWindow';
+import ChatWindow from '../components/ChatWindow';
 import MessageInput from '../components/MessageInput';
 import UserManagement from '../components/UserManagement';
+import GroupsManagement from '../components/GroupsManagement';
 
 const ChatPage = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedGroup, setSelectedGroup] = useState(null);
   const [users, setUsers] = useState([]);
   const [messages, setMessages] = useState([]);
+  const [groupMessages, setGroupMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('chat');
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [groups, setGroups] = useState([]);
+  const [groupsLoading, setGroupsLoading] = useState(true);
   
   const navigate = useNavigate();
 
@@ -35,6 +41,7 @@ const ChatPage = () => {
     console.log('Authenticated admin user:', user);
     setCurrentUser(user);
     loadUsers();
+    loadGroups();
   }, [navigate]);
 
   const loadUsers = async () => {
@@ -77,6 +84,7 @@ const ChatPage = () => {
 
   const handleUserSelect = async (user) => {
     setSelectedUser(user);
+    setSelectedGroup(null);
     setSidebarVisible(false);
     
     try {
@@ -93,6 +101,46 @@ const ChatPage = () => {
     } catch (error) {
       console.error('Error loading conversation:', error);
       setMessages([]);
+    }
+  };
+
+  const handleGroupSelect = async (group) => {
+    setSelectedGroup(group);
+    setSelectedUser(null);
+    setSidebarVisible(false);
+    try {
+      const response = await chatAPI.getGroupMessages(group.id);
+      setGroupMessages(
+        (response.messages || []).map(m => ({
+          id: m.id,
+          sender: m.from?.id,
+          senderInfo: m.from,
+          text: m.text,
+          timestamp: m.timestamp,
+        }))
+      );
+    } catch (e) {
+      console.error('Error loading group messages:', e);
+      setGroupMessages([]);
+    }
+  };
+
+  const loadGroups = async () => {
+    try {
+      setGroupsLoading(true);
+      const response = await groupsAPI.getAll(1, 100);
+      const list = (response.groups || []).map(g => ({
+        id: g.id || g._id,
+        name: g.name,
+        members: g.members || [],
+        isActive: g.isActive,
+      }));
+      setGroups(list);
+    } catch (error) {
+      console.error('Error loading groups:', error);
+      setGroups([]);
+    } finally {
+      setGroupsLoading(false);
     }
   };
 
@@ -128,6 +176,10 @@ const ChatPage = () => {
 
   const filteredUsers = users.filter(user =>
     user.username.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredGroups = groups.filter(group =>
+    group.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getAvatarColor = (username) => {
@@ -184,6 +236,34 @@ const ChatPage = () => {
     );
   }
 
+  if (activeTab === 'groups') {
+    return (
+      <div style={{ height: '100vh', backgroundColor: 'white' }}>
+        <div style={{ 
+          padding: '20px', 
+          borderBottom: '1px solid var(--wa-border)',
+          backgroundColor: 'var(--wa-panel-header)'
+        }}>
+          <button 
+            onClick={() => setActiveTab('chat')}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '16px',
+              color: 'var(--wa-green)',
+              cursor: 'pointer',
+              marginRight: '16px'
+            }}
+          >
+            ← Back to Chat
+          </button>
+          <span style={{ fontSize: '20px', fontWeight: '500' }}>Groups Management</span>
+        </div>
+        <GroupsManagement onChanged={loadUsers} />
+      </div>
+    );
+  }
+
   return (
     <div className="whatsapp-container">
       {/* Mobile Backdrop */}
@@ -219,6 +299,20 @@ const ChatPage = () => {
                 title="User Management"
               >
                 👥
+              </button>
+              <button
+                onClick={() => setActiveTab('groups')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '20px',
+                  color: 'var(--wa-text-muted)',
+                  cursor: 'pointer',
+                  padding: '8px'
+                }}
+                title="Groups Management"
+              >
+                🧑‍🤝‍🧑
               </button>
               <button
                 onClick={handleLogout}
@@ -273,7 +367,8 @@ const ChatPage = () => {
               <small>Check console for API errors</small>
             </div>
           ) : (
-            filteredUsers.map((user) => (
+            <>
+            {filteredUsers.map((user) => (
               <div
                 key={user.id}
                 className={`contact-item ${selectedUser?.id === user.id ? 'active' : ''}`}
@@ -295,7 +390,41 @@ const ChatPage = () => {
                   {user.isOnline ? 'now' : '12:45 PM'}
                 </div>
               </div>
-            ))
+            ))}
+
+            {/* Groups Section */}
+            <div style={{ padding: '8px 16px', color: 'var(--wa-text-muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Groups
+            </div>
+            {groupsLoading ? (
+              <div style={{ padding: '12px 16px', color: 'var(--wa-text-muted)' }}>Loading groups...</div>
+            ) : filteredGroups.length === 0 ? (
+              <div style={{ padding: '12px 16px', color: 'var(--wa-text-muted)' }}>No groups</div>
+            ) : (
+              filteredGroups.map(group => (
+                <div
+                  key={group.id}
+                  className={`contact-item ${selectedGroup?.id === group.id ? 'active' : ''}`}
+                  onClick={() => handleGroupSelect(group)}
+                  title="Open Group Chat"
+                >
+                  <div 
+                    className="avatar"
+                    style={{ backgroundColor: '#4ecdc4' }}
+                  >
+                    {group.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="contact-info">
+                    <h3 className="contact-name">{group.name}</h3>
+                    <p className="contact-status">{group.members.length} members</p>
+                  </div>
+                  <div className="contact-time">
+                    {group.isActive ? 'active' : 'inactive'}
+                  </div>
+                </div>
+              ))
+            )}
+            </>
           )}
         </div>
       </div>
@@ -359,6 +488,79 @@ const ChatPage = () => {
 
             {/* Message Input */}
             <MessageInput onSendMessage={handleSendMessage} />
+          </>
+        ) : selectedGroup ? (
+          <>
+            {/* Group Chat Header */}
+            <div className="chat-header">
+              <div className="header-left">
+                <button
+                  onClick={toggleSidebar}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    fontSize: '20px',
+                    color: 'var(--wa-text-muted)',
+                    cursor: 'pointer',
+                    marginRight: '16px',
+                    display: 'none'
+                  }}
+                  className="mobile-menu-btn"
+                >
+                  ←
+                </button>
+                <div 
+                  className="avatar"
+                  style={{ backgroundColor: '#4ecdc4' }}
+                >
+                  {selectedGroup.name.charAt(0).toUpperCase()}
+                </div>
+                <div style={{ marginLeft: '12px' }}>
+                  <h3 style={{ 
+                    margin: 0, 
+                    fontSize: '16px', 
+                    fontWeight: '400',
+                    color: 'var(--wa-text-primary)'
+                  }}>
+                    {selectedGroup.name}
+                  </h3>
+                  <p style={{ 
+                    margin: 0, 
+                    fontSize: '13px',
+                    color: 'var(--wa-text-muted)'
+                  }}>
+                    {selectedGroup.members?.length || 0} members
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Messages */}
+            <div className="chat-background">
+              <RealTimeChatWindow
+                currentUserId={currentUser?.id}
+                selectedGroupId={selectedGroup?.id}
+                fallbackMessages={groupMessages}
+              />
+            </div>
+
+            {/* Message Input */}
+            <MessageInput onSendMessage={async (text) => {
+              if (!text.trim() || !selectedGroup) return;
+              const temp = {
+                id: Date.now(),
+                text,
+                sender: currentUser.id,
+                timestamp: new Date().toISOString(),
+              };
+              setGroupMessages(prev => [...prev, temp]);
+              try {
+                await chatAPI.sendGroupMessage(selectedGroup.id, text);
+              } catch (e) {
+                console.error('Error sending group message:', e);
+                setGroupMessages(prev => prev.filter(m => m.id !== temp.id));
+              }
+            }} />
           </>
         ) : (
           <div className="empty-chat">
